@@ -87,7 +87,7 @@ fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
 }
 
 fn main() {
-    let matches = App::new("ddnaughty")
+    let matches = App::new("ddimagify")
         .version("0.1")
         .about("Pretend everything is an image")
         .author("Denis D.")

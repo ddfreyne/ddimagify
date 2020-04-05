@@ -134,7 +134,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ddnaughty"
+name = "ddimagify"
 version = "0.1.0"
 dependencies = [
  "clap",

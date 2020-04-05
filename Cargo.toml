@@ -1,5 +1,5 @@
 [package]
-name = "ddnaughty"
+name = "ddimagify"
 version = "0.1.0"
 authors = ["Denis Defreyne <denis.defreyne@stoneship.org>"]
 edition = "2018"
