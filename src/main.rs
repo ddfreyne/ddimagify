@@ -1,6 +1,3 @@
-extern crate clap;
-extern crate image;
-
 use clap::{App, Arg};
 use image::ImageError;
 use std::fs;
