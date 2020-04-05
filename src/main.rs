@@ -6,6 +6,10 @@ use image::ImageError;
 use std::fs;
 use std::io::prelude::*;
 
+fn divide_rounding_up(dividend: usize, divisor: usize) -> usize {
+    (dividend + (divisor - 1)) / divisor
+}
+
 fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
     let mut t = Vec::new();
 
@@ -17,10 +21,12 @@ fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> 
 
     // +4 to add length
     // +3 /4 to round up
-    let pixels_count = ((t.len() + 4) + 3) / 4;
+    let pixels_count = 1 + divide_rounding_up(t.len(), 4);
     let extra = t.len() % 4;
 
-    let mut buf = image::ImageBuffer::new(pixels_count as u32, 1);
+    let width = (pixels_count as f64).sqrt() as usize;
+    let height = divide_rounding_up(pixels_count, width);
+    let mut buf = image::ImageBuffer::new(width as u32, height as u32);
 
     // Write length
     let pixel = buf.get_pixel_mut(0, 0);
@@ -28,17 +34,17 @@ fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> 
 
     // Write data
     for (idx, _b) in t.iter().enumerate().step_by(4) {
-        let x = idx / 4 + 1;
-        let y = 0;
-
-        let pixel = buf.get_pixel_mut(x as u32, y as u32);
+        let x = (idx / 4 + 1) % width;
+        let y = (idx / 4 + 1) / width;
 
         let diff = pixels_count * 4 - extra - (idx + 4);
 
+        let pixel = buf.get_pixel_mut(x as u32, y as u32);
+
         match diff {
-            1 => *pixel = image::Rgba([t[idx], 0, 0, 0]),
+            3 => *pixel = image::Rgba([t[idx], 0, 0, 0]),
             2 => *pixel = image::Rgba([t[idx], t[idx + 1], 0, 0]),
-            3 => *pixel = image::Rgba([t[idx], t[idx + 1], t[idx + 2], 0]),
+            1 => *pixel = image::Rgba([t[idx], t[idx + 1], t[idx + 2], 0]),
             _ => *pixel = image::Rgba([t[idx], t[idx + 1], t[idx + 2], t[idx + 3]]),
         }
     }
@@ -64,15 +70,17 @@ fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
     // Read data
     let mut written = 0;
     for (_x, _y, pixel) in img.enumerate_pixels().skip(1) {
-        let diff = (length - written) as usize;
+        if length > written {
+            let diff = (length - written) as usize;
 
-        if diff >= 4 {
-            buffer.write_all(&pixel.0)?;
-        } else {
-            let data = &pixel.0[0..diff];
-            buffer.write_all(data)?;
+            if diff >= 4 {
+                buffer.write_all(&pixel.0)?;
+            } else {
+                let data = &pixel.0[0..diff];
+                buffer.write_all(data)?;
+            }
+            written += 4;
         }
-        written += 4;
     }
 
     Ok(())
