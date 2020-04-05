@@ -2,31 +2,58 @@ extern crate clap;
 extern crate image;
 
 use clap::{App, Arg};
+use image::ImageError;
 use std::fs;
+use std::io::prelude::*;
 
-fn write(s: &str, filename: &str) {
-    let chars_count = s.chars().count();
+fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
+    let mut t = Vec::new();
 
-    let mut buf = image::ImageBuffer::new(chars_count as u32, 1);
+    if input_filename == "-" {
+        std::io::stdin().read_to_end(&mut t)?;
+    } else {
+        std::fs::File::open(input_filename)?.read_to_end(&mut t)?;
+    };
 
-    for (idx, ch) in s.chars().enumerate() {
-        let x = idx;
+    let pixels_count = (t.len() + 3) / 4;
+    let extra = t.len() % 4;
+
+    let mut buf = image::ImageBuffer::new(pixels_count as u32, 1);
+
+    for (idx, _b) in t.iter().enumerate().step_by(4) {
+        let x = idx / 4;
         let y = 0;
 
         let pixel = buf.get_pixel_mut(x as u32, y as u32);
-        *pixel = image::Rgba((ch as u32).to_be_bytes());
+
+        let diff = pixels_count * 4 - extra - idx;
+        match diff {
+            1 => *pixel = image::Rgba([t[idx], 0, 0, 0]),
+            2 => *pixel = image::Rgba([t[idx], t[idx + 1], 0, 0]),
+            3 => *pixel = image::Rgba([t[idx], t[idx + 1], t[idx + 2], 0]),
+            _ => *pixel = image::Rgba([t[idx], t[idx + 1], t[idx + 2], t[idx + 3]]),
+        }
     }
 
-    buf.save(filename).unwrap();
+    buf.save(output_filename)?;
+
+    Ok(())
 }
 
-fn read(filename: &str) {
-    let img = image::open(filename).unwrap().to_rgba();
+fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
+    let mut buffer: Box<dyn Write> = if output_filename == "-" {
+        Box::new(std::io::stdout())
+    } else {
+        Box::new(fs::File::create(output_filename)?)
+    };
+
+    let img = image::open(input_filename)?.to_rgba();
 
     for (_x, _y, pixel) in img.enumerate_pixels() {
-        let ch = std::char::from_u32(u32::from_be_bytes(pixel.0));
-        print!("{}", ch.unwrap());
+        buffer.write_all(&pixel.0)?;
     }
+
+    Ok(())
 }
 
 fn main() {
@@ -58,24 +85,18 @@ fn main() {
                 .long("output")
                 .value_name("FILE")
                 .help("Write to this file")
+                .required(true)
                 .takes_value(true),
         )
         .get_matches();
 
     let mode = matches.value_of("mode").unwrap();
     let input = matches.value_of("input").unwrap();
-    let output = matches.value_of("output");
+    let output = matches.value_of("output").unwrap();
 
     match mode {
-        "read" => read(input),
-        "write" => {
-            let s = fs::read_to_string(input).unwrap();
-
-            match output {
-                Some(f) => write(s.as_str(), f),
-                None => println!("Error: Mode set to `write`, but no output file specified"),
-            }
-        }
+        "read" => read(input, output).unwrap(),
+        "write" => write(input, output).unwrap(),
         _ => {
             println!("Error: Unknown mode (expected `read` or `write`)");
         }
