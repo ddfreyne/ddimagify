@@ -15,18 +15,26 @@ fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> 
         std::fs::File::open(input_filename)?.read_to_end(&mut t)?;
     };
 
-    let pixels_count = (t.len() + 3) / 4;
+    // +4 to add length
+    // +3 /4 to round up
+    let pixels_count = ((t.len() + 4) + 3) / 4;
     let extra = t.len() % 4;
 
     let mut buf = image::ImageBuffer::new(pixels_count as u32, 1);
 
+    // Write length
+    let pixel = buf.get_pixel_mut(0, 0);
+    *pixel = image::Rgba((t.len() as u32).to_be_bytes());
+
+    // Write data
     for (idx, _b) in t.iter().enumerate().step_by(4) {
-        let x = idx / 4;
+        let x = idx / 4 + 1;
         let y = 0;
 
         let pixel = buf.get_pixel_mut(x as u32, y as u32);
 
-        let diff = pixels_count * 4 - extra - idx;
+        let diff = pixels_count * 4 - extra - (idx + 4);
+
         match diff {
             1 => *pixel = image::Rgba([t[idx], 0, 0, 0]),
             2 => *pixel = image::Rgba([t[idx], t[idx + 1], 0, 0]),
@@ -49,8 +57,22 @@ fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
 
     let img = image::open(input_filename)?.to_rgba();
 
-    for (_x, _y, pixel) in img.enumerate_pixels() {
-        buffer.write_all(&pixel.0)?;
+    // Read length
+    let pixel = img.get_pixel(0, 0);
+    let length = u32::from_be_bytes(pixel.0);
+
+    // Read data
+    let mut written = 0;
+    for (_x, _y, pixel) in img.enumerate_pixels().skip(1) {
+        let diff = (length - written) as usize;
+
+        if diff >= 4 {
+            buffer.write_all(&pixel.0)?;
+        } else {
+            let data = &pixel.0[0..diff];
+            buffer.write_all(data)?;
+        }
+        written += 4;
     }
 
     Ok(())
