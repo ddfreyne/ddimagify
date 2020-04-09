@@ -2,6 +2,7 @@ use clap::{App, Arg};
 use image::ImageError;
 use std::fs;
 use std::io::prelude::*;
+use std::io::BufWriter;
 
 fn divide_rounding_up(dividend: usize, divisor: usize) -> usize {
     (dividend + (divisor - 1)) / divisor
@@ -52,11 +53,12 @@ fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> 
 }
 
 fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
-    let mut buffer: Box<dyn Write> = if output_filename == "-" {
+    let raw_writer: Box<dyn Write> = if output_filename == "-" {
         Box::new(std::io::stdout())
     } else {
         Box::new(fs::File::create(output_filename)?)
     };
+    let mut writer = BufWriter::new(raw_writer);
 
     let img = image::open(input_filename)?.to_rgba();
 
@@ -71,14 +73,16 @@ fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
             let diff = (length - written) as usize;
 
             if diff >= 4 {
-                buffer.write_all(&pixel.0)?;
+                writer.write_all(&pixel.0)?;
             } else {
                 let data = &pixel.0[0..diff];
-                buffer.write_all(data)?;
+                writer.write_all(data)?;
             }
             written += 4;
         }
     }
+
+    writer.flush()?;
 
     Ok(())
 }
