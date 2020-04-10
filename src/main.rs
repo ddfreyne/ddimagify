@@ -3,12 +3,13 @@ use image::ImageError;
 use std::fs;
 use std::io::prelude::*;
 use std::io::BufWriter;
+use std::path::Path;
 
 fn divide_rounding_up(dividend: usize, divisor: usize) -> usize {
     (dividend + (divisor - 1)) / divisor
 }
 
-fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
+fn wrap<T: AsRef<Path>>(input_filename: &str, output_filename: T) -> Result<(), ImageError> {
     let mut t = Vec::new();
 
     if input_filename == "-" {
@@ -52,8 +53,8 @@ fn write(input_filename: &str, output_filename: &str) -> Result<(), ImageError> 
     Ok(())
 }
 
-fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
-    let raw_writer: Box<dyn Write> = if output_filename == "-" {
+fn unwrap<T: AsRef<Path>>(input_filename: &str, output_filename: T) -> Result<(), ImageError> {
+    let raw_writer: Box<dyn Write> = if output_filename.as_ref() == Path::new("-") {
         Box::new(std::io::stdout())
     } else {
         Box::new(fs::File::create(output_filename)?)
@@ -88,27 +89,21 @@ fn read(input_filename: &str, output_filename: &str) -> Result<(), ImageError> {
 }
 
 fn main() {
-    let matches = App::new("ddimagify")
+    let matches = App::new("png-smuggler")
         .version("0.1")
-        .about("Pretend everything is an image")
+        .about("Smuggle things as PNGs")
         .author("Denis D.")
         .arg(
-            Arg::with_name("mode")
-                .short("m")
-                .long("mode")
-                .value_name("MODE")
-                .help("Specify mode (read or write)")
-                .required(true)
-                .takes_value(true),
+            Arg::with_name("MODE")
+                .index(1)
+                .help("Specify mode (wrap, unwrap)")
+                .required(true),
         )
         .arg(
-            Arg::with_name("input")
-                .short("i")
-                .long("input")
-                .value_name("FILE")
+            Arg::with_name("FROM")
                 .help("Read from this file")
-                .required(true)
-                .takes_value(true),
+                .index(2)
+                .required(true),
         )
         .arg(
             Arg::with_name("output")
@@ -116,20 +111,35 @@ fn main() {
                 .long("output")
                 .value_name("FILE")
                 .help("Write to this file")
-                .required(true)
                 .takes_value(true),
         )
         .get_matches();
 
-    let mode = matches.value_of("mode").unwrap();
-    let input = matches.value_of("input").unwrap();
-    let output = matches.value_of("output").unwrap();
+    let mode = matches.value_of("MODE").unwrap();
+    let from = matches.value_of("FROM").unwrap();
+    let output = matches
+        .value_of("output")
+        .map(|o| o.to_owned())
+        .unwrap_or_else(|| {
+            let stem: Option<&str> = Path::new(from).file_stem().and_then(|o| o.to_str());
+            let new: String = stem.unwrap_or(from).to_owned() + ".png";
+            new
+        });
+
+    if Path::new(&output).exists() {
+        println!("Error: Output file already exists ({})", output);
+        std::process::exit(1);
+    }
+
+    println!("mode: {}", mode);
+    println!("{} ~~> {}", from, output);
 
     match mode {
-        "read" => read(input, output).unwrap(),
-        "write" => write(input, output).unwrap(),
+        "wrap" => wrap(from, output).unwrap(),
+        "unwrap" => unwrap(from, output).unwrap(),
         _ => {
-            println!("Error: Unknown mode (expected `read` or `write`)");
+            println!("Error: Unknown mode (expected `wrap` or `unwrap`)");
+            std::process::exit(1);
         }
     };
 }

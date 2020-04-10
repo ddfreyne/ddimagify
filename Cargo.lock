@@ -134,14 +134,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ddimagify"
-version = "0.1.0"
-dependencies = [
- "clap",
- "image",
-]
-
-[[package]]
 name = "deflate"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -316,6 +308,14 @@ dependencies = [
  "crc32fast",
  "deflate",
  "inflate",
+]
+
+[[package]]
+name = "png-smuggler"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "image",
 ]
 
 [[package]]

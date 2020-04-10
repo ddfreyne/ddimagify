@@ -1,11 +1,13 @@
-# ddimagify
+# png-smuggler
 
-Everything is an image!
+Everything is a PNG if you want it to be!
 
 ```
 # convert virus.exe to a PNG
-./ddimagify -m write -i virus.exe -o virus.png
+./png-smuggler wrap virus.exe
+./png-smuggler wrap virus.exe -o innocent.png
 
 # convert virus.png to an EXE
-./ddimagify -m read -i virus.png -o virus.exe
+./png-smuggler unwrap virus.png
+./png-smuggler unwrap innocent.png -o virus.exe
 ```
